@@ -6,7 +6,7 @@ INPUT_CHANNELS = 3
 IMAGE_SIZE = 256
 
 
-class FeatureExtractor(nn.module):
+class FeatureExtractor(nn.Module):
     def __init__(self):
         super().__init__()
         self.cnn = nn.Sequential(
@@ -16,7 +16,7 @@ class FeatureExtractor(nn.module):
             nn.Conv2d(64, 128, 3),
             nn.MaxPool2d(2)
         )
-        self.connected = nn.sequential(
+        self.connected = nn.Sequential(
             nn.Linear(INPUT_CHANNELS*IMAGE_SIZE**2*128, 512),
             nn.ReLU(),
             nn.Linear(512, 256)

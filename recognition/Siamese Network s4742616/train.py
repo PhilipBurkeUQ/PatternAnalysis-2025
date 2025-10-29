@@ -2,7 +2,7 @@ from dataset import *
 from model import *
 import torch
 import os
-
+from torch.utils.data import DataLoader
 
 
 RANDOM_STATE = 354
@@ -15,17 +15,11 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #Loads and preproccesses datasets
     print(f"Training on Device: {device}")
-    Y = preproccess_Y(device)
-    if PRE_PROCCESSED and os.path.exists(X_PATH):
-        X_name = X_PATH
-    else:
-        X_name = preprocess_X(device)
-    X = torch.load(X_name)
-
-    #Splits data into train, test and validation splits
-    x_train, y_train, x_val, y_val, x_test, y_test = train_test_valid_split(X,Y)
-
-    x_test, y_test = 0,0 #Don't need them for training
+    #Loads Data
+    train, val = get_data(device) 
+    #Sets up dataset loaders
+    train_loader = DataLoader(train, batch_size = 16, shuffle = True)
+    val_loader = DataLoader(val, batch_size = 16, shuffle = True)
 
     #load models
     network = SiameseNetwork()
