@@ -1,4 +1,5 @@
 from dataset import *
+from model import *
 import torch
 import os
 
@@ -26,9 +27,8 @@ if __name__ == "__main__":
 
     x_test, y_test = 0,0 #Don't need them for training
 
-
-
     #load models
+    network = SiameseNetwork()
 
     #begin training loop
 
