@@ -15,30 +15,25 @@ X_DATA = "PatternAnalysis-2025/recognition/Siamese Network s4742616/data/train/"
 #Temp File Names
 FILENAME_X = "PatternAnalysis-2025/recognition/Siamese Network s4742616/data.pt"
 TRAIN_DATA = "PatternAnalysis-2025/recognition/Siamese Network s4742616/trainDataset.pt"
-VAL_DATA = "PatternAnalysis-2025/recognition/Siamese Network s4742616/valDataset.pt"
 #Some default parameters
 DIMENSIONS = 256 #Dimensions of resized image
 RANDOM_STATE = 354
 
 PREPROCESS_NEEDED = False #Flag to determine whether to preprocess images or not (i.e should I load from file or not)
-MAKE_DATASET = True
+MAKE_DATASET = False
 def get_data(device = "cpu"):
     X = preprocess_X(device)
     Y = preprocess_Y(device)
     train_idx, val_idx, test_idx = train_test_valid_split(X, Y)
 
     #Convert to Dataset class
-    if MAKE_DATASET or (os.path.exists(TRAIN_DATA) and os.path.exists(VAL_DATA)):
+    if MAKE_DATASET or not(os.path.exists(TRAIN_DATA)):
         train_dataset = SiameseDataset(X,Y,train_idx)
         torch.save(train_dataset, TRAIN_DATA)
-        val_dataset = SiameseDataset(X,Y,val_idx)
-        torch.save(val_dataset, VAL_DATA)
     else:
-        train_dataset = torch.load(TRAIN_DATA)
-        val_dataset = torch.load(VAL_DATA)
-    
+        train_dataset = torch.load(TRAIN_DATA, weights_only = False)
 
-    return train_dataset, val_dataset
+    return train_dataset, X[val_idx], Y[val_idx], X[test_idx], Y[test_idx]
     
 
 
@@ -51,7 +46,7 @@ def preprocess_X(device = "cpu", X_source = X_DATA, newSize = DIMENSIONS):
         3.Data augmentation (Possibly)
         Returns filename of tensor saved to file """
     if not PREPROCESS_NEEDED:
-        return torch.load(FILENAME_X) #If we aren't pre-processing load from file
+        return torch.load(FILENAME_X, weights_only = False) #If we aren't pre-processing load from file
     
     transform = transforms.Compose([
         transforms.Resize((DIMENSIONS, DIMENSIONS)),

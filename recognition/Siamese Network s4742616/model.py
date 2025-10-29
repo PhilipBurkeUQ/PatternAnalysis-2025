@@ -17,7 +17,7 @@ class FeatureExtractor(nn.Module):
             nn.MaxPool2d(2)
         )
         self.connected = nn.Sequential(
-            nn.Linear(INPUT_CHANNELS*IMAGE_SIZE**2*128, 512),
+            nn.Linear(IMAGE_SIZE*31*62, 512),
             nn.ReLU(),
             nn.Linear(512, 256)
 
@@ -35,7 +35,7 @@ class SiameseNetwork(nn.Module):
     def forward(self, x1, x2):
         image1 = self.feature_extractor(x1)
         image2 = self.feature_extractor(x2)
-
-        distance = torch.abs(image1 - image2)
-
-        return distance
+        return image1, image2
+    
+    def predict(self, x1):
+        return 1
