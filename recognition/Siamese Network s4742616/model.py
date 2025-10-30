@@ -17,7 +17,7 @@ class FeatureExtractor(nn.Module):
             nn.MaxPool2d(2)
         )
         self.connected = nn.Sequential(
-            nn.Linear(IMAGE_SIZE*31*62, 512),
+            nn.Linear(128*62*62, 512),
             nn.ReLU(),
             nn.Linear(512, 256)
 
@@ -31,11 +31,21 @@ class SiameseNetwork(nn.Module):
     def __init__(self):
         super().__init__()
         self.feature_extractor = FeatureExtractor()
+        self.classifier = nn.Sequential(
+            nn.Linear(256, 1), #Maps to positive/negative class
+            nn.Sigmoid() #Probability of being positive
+        )
 
-    def forward(self, x1, x2):
+    def forward(self, x1, x2 = None, classify = False):
         image1 = self.feature_extractor(x1)
-        image2 = self.feature_extractor(x2)
-        return image1, image2
+        if not classify: #Learning embeddings (or generating them)
+            image2 = self.feature_extractor(x2)
+            return image1, image2
+        else:
+            return self.classifier(image1)
     
     def predict(self, x1):
-        return 1
+        self.eval()
+        with torch.no_grad():
+            prob = self.forward(x1, classify = True)
+            return (prob > 0.5).float() #if prediction > 0.5 as tensor
