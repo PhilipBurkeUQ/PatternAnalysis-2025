@@ -20,20 +20,20 @@ DIMENSIONS = 256 #Dimensions of resized image
 RANDOM_STATE = 354
 
 PREPROCESS_NEEDED = False #Flag to determine whether to preprocess images or not (i.e should I load from file or not)
-MAKE_DATASET = False
+MAKE_DATASET = True
 def get_data(device = "cpu"):
-    X = preprocess_X(device)
+    #X = preprocess_X(device)
     Y = preprocess_Y(device)
-    train_idx, val_idx, test_idx = train_test_valid_split(X, Y)
+    train_idx, val_idx, test_idx = train_test_valid_split(X_DATA, Y)
 
     #Convert to Dataset class
     if MAKE_DATASET or not(os.path.exists(TRAIN_DATA)):
-        train_dataset = SiameseDataset(X,Y,train_idx)
+        train_dataset = SiameseDataset(X_DATA,Y,train_idx)
         torch.save(train_dataset, TRAIN_DATA)
     else:
         train_dataset = torch.load(TRAIN_DATA, weights_only = False)
 
-    return train_dataset, X[val_idx], Y[val_idx], X[test_idx], Y[test_idx]
+    return train_dataset
     
 
 
@@ -82,10 +82,10 @@ def preprocess_Y(device = "cpu", Y_source = Y_DATA):
 
     return y
 
-def train_test_valid_split(X, Y):
+def train_test_valid_split(X_DATA, Y):
     """
     Returns the indices of the datapoints in the train/validation/test"""
-    indices = list(range(len(X))) #indices of X data
+    indices = list(range(len(os.listdir(X_DATA)))) #indices of X data
     #Split 70% of the data into training set
     train_idx, temp_idx, train_labels, temp_labels = train_test_split(indices, Y, test_size = 0.3, stratify = Y)
     #Split 20% of overall data into test set, 10% into validation
@@ -97,10 +97,18 @@ class SiameseDataset(torch.utils.data.Dataset):
     #Custom dataset for pairs of data
     #To be used with data loader
     def __init__(self, x_data, y_data, indices):
-        self.x_data = x_data
+        import pandas as pd
+        from pathlib import Path
+        self.x_data = Path(x_data)
         self.y_data = y_data
         self.indices = indices
         torch.manual_seed(RANDOM_STATE)
+        self.transform = transforms.Compose([
+            transforms.Resize((DIMENSIONS, DIMENSIONS)),
+            transforms.ToTensor(),
+            ])
+        self.filenames = [f.name for f in self.x_data.iterdir() if f.is_file() and f.suffix.lower() in ['.jpg']]
+        assert len(self.filenames) == len(y_data), f"Number of images ({len(self.filenames)}) does not match number of labels ({len(y_data)})"
         self._pair_data()
 
     def _pair_data(self):
@@ -134,11 +142,15 @@ class SiameseDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.pairs)
     
+    def _load_image(self, idx):
+        filename = self.filenames[idx]
+        image_path = os.path.join(self.x_data, filename)
+        img = Image.open(image_path).convert("RGB")
+        return self.transform(img)
+
+
     def __getitem__(self, idx):
         i, j = self.pairs[idx]
-        img1, img2 = self.x_data[i], self.x_data[j]
-
-        label = torch.tensor(self.pair_labels[idx], dtype = torch.float32)
-
-        return img1,img2,label
-
+        img1, img2 = self._load_image(i), self._load_image(j)
+        label = torch.tensor(self.pair_labels[idx], dtype=torch.float32)
+        return img1, img2, label

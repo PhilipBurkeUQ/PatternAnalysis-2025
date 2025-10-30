@@ -56,7 +56,7 @@ if __name__ == "__main__":
     #Loads and preproccesses datasets
     print(f"Training on Device: {device}")
     #Loads Data
-    train, X_val, Y_val, _, _ = get_data(device) 
+    train = get_data(device) 
     #Sets up dataset loaders
     train_loader = DataLoader(train, batch_size = 16, shuffle = True)
     print("Data Loaded Successfully")
