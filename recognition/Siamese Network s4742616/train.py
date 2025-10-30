@@ -5,6 +5,7 @@ import os
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 RANDOM_STATE = 354
@@ -12,15 +13,20 @@ RANDOM_STATE = 354
 
 PRE_PROCCESSED = True #Flag to see if we've already pre-processed data 
 MODEL_PATH = "PatternAnalysis-2025/recognition/Siamese Network s4742616/model.pt"
-
 def train_model(model, num_epochs = 10, lr = 1e-4):
+    embed_loss = train_model_embeddings(model, num_epochs = 0, lr = lr)
+    classify_loss = train_model_classifier(model, num_epochs = num_epochs, lr = lr)
+    return embed_loss, classify_loss
+
+def train_model_embeddings(model, num_epochs = 10, lr = 1e-4):
     #loss = SOMELOSSFUNCTION
     optimizer = optim.Adam(model.parameters(), lr = lr)
     lossfunc = ContrastiveLoss()
+    losses = []
 
     for epoch in range(num_epochs):
         running_loss = 0.0
-        for img1, img2, labels in tqdm(train_loader, desc = f"Epoch {epoch+1}/{num_epochs}"):
+        for img1, img2, labels in tqdm(train_loader, desc = f"(Embeddings) Epoch {epoch+1}/{num_epochs}"):
             img1, img2, labels = img1.to(device), img2.to(device), labels.to(device)
 
             optimizer.zero_grad()
@@ -33,6 +39,8 @@ def train_model(model, num_epochs = 10, lr = 1e-4):
             running_loss += loss.item() * img1.size(0)
         epoch_loss = running_loss / len(train_loader.dataset)
         print(f"Epoch {epoch+1}, Loss: {epoch_loss:.4f}")
+        losses.append(epoch_loss)
+    return losses
 
 class ContrastiveLoss(nn.Module):
     """
@@ -50,6 +58,31 @@ class ContrastiveLoss(nn.Module):
         loss = (1 - label) * 0.5 * torch.pow(euclidean_distance, 2) + \
                label * 0.5 * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2)
         return loss.mean()
+    
+def train_model_classifier(model, num_epochs = 10, lr = 1e-4):
+    optimizer = optim.Adam(model.parameters(), lr = lr)
+    lossfunc = nn.BCELoss()
+    losses = []
+
+    for epoch in range(num_epochs):
+        running_loss = 0.0
+        for img1, img2, labels in tqdm(train_loader, desc = f"(Classifier) Epoch {epoch+1}/{num_epochs}"):
+            img1, img2, labels = img1.to(device), img2.to(device), labels.to(device)
+
+            labels = labels.float().unsqueeze(-1) #makes same shape as output
+
+            optimizer.zero_grad()
+
+            output1 = model(img1, classify = True)
+            loss = lossfunc(output1, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item() * img1.size(0)
+        epoch_loss = running_loss / len(train_loader.dataset)
+        print(f"Epoch {epoch+1}, Loss: {epoch_loss:.4f}")
+        losses.append(epoch_loss)
+    return losses
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -65,6 +98,11 @@ if __name__ == "__main__":
     model = SiameseNetwork().to(device)
     
 
-    train_model(model)
+    embed_loss, classify_loss = train_model(model)
+
+    plt.plot(embed_loss, main = "Loss for Feature Extraction", ylab = "Loss", xlab = "Epoch")
+
+    plt.savefig("Embedding_Loss.png")
+    plt.plot(classify_loss, main = "Loss for Classification", ylab = "Loss", xlab = "Epoch")
     torch.save(model, MODEL_PATH)
 
