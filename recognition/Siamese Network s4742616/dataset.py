@@ -33,7 +33,7 @@ def get_data(device = "cpu"):
 
     #Convert to Dataset class
     train_dataset_embed = EmbeddingDataset(X_DATA,Y,train_idx)
-    train_dataset_classify = ClassifyDataset(X_DATA, Y, train_idx)
+    train_dataset_classify = ClassifyDataset(X_DATA, Y, val_idx)
 
     return train_dataset_embed, train_dataset_classify
     

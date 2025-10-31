@@ -16,7 +16,7 @@ MODEL_PATH = "PatternAnalysis-2025/recognition/Siamese Network s4742616/model.pt
 def train_model(model, num_epochs = 10, lr = 1e-4):
     """Function to train the model"""
     #Get feature extraction training done (Computing similarity)
-    embed_loss = train_model_embeddings(model, num_epochs = num_epochs, lr = lr)
+    embed_loss = train_model_embeddings(model, num_epochs = 10, lr = lr)
     #Then train the classifier
     classify_loss = train_model_classifier(model, num_epochs = num_epochs, lr = lr)
     return embed_loss, classify_loss
@@ -71,7 +71,7 @@ def train_model_classifier(model, num_epochs = 10, lr = 1e-4):
     """Optimization of classifier"""
     optimizer = optim.Adam(model.classifier.parameters(), lr = lr)
     weights = torch.tensor([0.95/0.05])
-    lossfunc = nn.BCEWithLogistsLoss(pos_weight = weights)
+    lossfunc = nn.BCEWithLogitsLoss(pos_weight = weights)
     losses = []
 
     for epoch in range(num_epochs):

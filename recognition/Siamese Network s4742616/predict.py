@@ -37,7 +37,6 @@ if __name__ == "__main__":
 
     #  Get data
     val_data, test_data = get_test_val_data("cpu")
-
     val_loader = DataLoader(val_data, batch_size=16, shuffle=False)
     test_loader = DataLoader(test_data, batch_size=16, shuffle=False)
 
@@ -46,7 +45,7 @@ if __name__ == "__main__":
 
 
     #Output results
-    print(classification_report(preds, labels, target_names = ['benign', 'malignant']))
+    #print(classification_report(preds, labels, target_names = ['benign', 'malignant']))
     print(f"Overall Accuracy: {accuracy_score(preds, labels)}")
 
 
