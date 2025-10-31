@@ -1,7 +1,16 @@
 # Siamese Network Classifier
 ## s4742616 Philip Burke COMP3710 Report
 
+### File Description
+dataset.py: Contains helper functions in order to load dataset into one of 2 custom dataset classes. Handles pre-processing of data and loading into training modules. Has some adjustable parameters about size of dataset used, filenames etc.
 
+module.py: Contains code outlining the Siamese network module. To be called by train.py
+
+train.py: Contains the training algorithm for the Siamese Network. Run by calling train.py, saves trained model into file "model.pt". Model has function model.predict() to use for predictions/using model.
+
+predict.py: Tests results of model against test set. Computes accuracy, precision and recall for both classes. Run by calling predict.py, requires a saved model in model.pt.
+
+## Justification Of Decisions/Background Information
 ### Dataset Information
 
 The dataset consisted of 33,126 dermoscopic .jpg images of benign and malignant skin lesions. Images varied in size and shape considerably. The test dataset provided on the ISIC2020 website contained no ground truth about the correct status of the lesion and so the choice was made to split the training dataset in order for predictions to be made about the generalisation of the performance of the algorithm.
