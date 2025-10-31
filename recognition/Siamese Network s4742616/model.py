@@ -7,9 +7,11 @@ IMAGE_SIZE = 256
 
 
 class FeatureExtractor(nn.Module):
+    """CNN that extracts features from image for computing similarity"""
     def __init__(self):
         super().__init__()
         self.cnn = nn.Sequential(
+            #Convolutional Layer
             nn.Conv2d(INPUT_CHANNELS, 64, 3),
             nn.ReLU(),
             nn.MaxPool2d(2),
@@ -17,6 +19,7 @@ class FeatureExtractor(nn.Module):
             nn.MaxPool2d(2)
         )
         self.connected = nn.Sequential(
+            #Fully Connected Layer
             nn.Linear(128*62*62, 512),
             nn.ReLU(),
             nn.Linear(512, 256)
@@ -33,7 +36,8 @@ class SiameseNetwork(nn.Module):
         self.feature_extractor = FeatureExtractor()
         self.classifier = nn.Sequential(
             nn.Linear(256, 1), #Maps to positive/negative class
-            nn.Sigmoid() #Probability of being positive
+            #Sigmoid applied in loss function
+            
         )
 
     def forward(self, x1, x2 = None, classify = False):
@@ -47,5 +51,7 @@ class SiameseNetwork(nn.Module):
     def predict(self, x1):
         self.eval()
         with torch.no_grad():
+            sigmoid = nn.Sigmoid() #Probability of being positive
             prob = self.forward(x1, classify = True)
+            prob = sigmoid(prob)
             return (prob > 0.5).float() #if prediction > 0.5 as tensor
