@@ -14,60 +14,41 @@ X_DATA = "PatternAnalysis-2025/recognition/Siamese Network s4742616/data/train/"
 
 #Temp File Names
 FILENAME_X = "PatternAnalysis-2025/recognition/Siamese Network s4742616/data.pt"
-TRAIN_DATA = "PatternAnalysis-2025/recognition/Siamese Network s4742616/trainDataset.pt"
 #Some default parameters
 DIMENSIONS = 256 #Dimensions of resized image
 RANDOM_STATE = 354
 
+NUM_TRAIN_SAMPLES = 5000 #Parameter to control the number of pairs created
+
 PREPROCESS_NEEDED = False #Flag to determine whether to preprocess images or not (i.e should I load from file or not)
 MAKE_DATASET = True
+
 def get_data(device = "cpu"):
-    #X = preprocess_X(device)
+    """Gets custom datasets for dataloaders for trainining data"""
+    #Loads Y values to memory
     Y = preprocess_Y(device)
-    train_idx, val_idx, test_idx = train_test_valid_split(X_DATA, Y)
+
+    #Get train, test split
+    train_idx, val_idx, _ = train_test_valid_split(X_DATA, Y)
 
     #Convert to Dataset class
-    if MAKE_DATASET or not(os.path.exists(TRAIN_DATA)):
-        train_dataset = SiameseDataset(X_DATA,Y,train_idx)
-        torch.save(train_dataset, TRAIN_DATA)
-    else:
-        train_dataset = torch.load(TRAIN_DATA, weights_only = False)
+    train_dataset_embed = EmbeddingDataset(X_DATA,Y,train_idx)
+    train_dataset_classify = ClassifyDataset(X_DATA, Y, train_idx)
 
-    return train_dataset
+    return train_dataset_embed, train_dataset_classify
     
 
+def get_test_val_data(device = "cpu"):
+    """Gets custom dataset for test and validation sets"""
+    #Loads Y and creates train/test split
+    Y = preprocess_Y(device)
+    _, val_idx, test_idx = train_test_valid_split(X_DATA, Y)
 
+    #Creates custom datasets
+    val_data = ClassifyDataset(X_DATA, Y, val_idx)
+    test_data = ClassifyDataset(X_DATA, Y, test_idx)
 
-def preprocess_X(device = "cpu", X_source = X_DATA, newSize = DIMENSIONS):
-    """ Preprocesses X data from images to pytorch tensors
-        Preprocessing Steps:
-        1.Convert to tensor
-        2.Resize to square (dim * dim)
-        3.Data augmentation (Possibly)
-        Returns filename of tensor saved to file """
-    if not PREPROCESS_NEEDED:
-        return torch.load(FILENAME_X, weights_only = False) #If we aren't pre-processing load from file
-    
-    transform = transforms.Compose([
-        transforms.Resize((DIMENSIONS, DIMENSIONS)),
-        transforms.ToTensor(),
-    ])
-
-    images = []
-
-    for filename in tqdm(os.listdir(X_DATA), desc = "Processing Images"):
-        if filename.lower().endswith('.jpg'): #It will
-            image_path = os.path.join(X_DATA, filename)
-            image = Image.open(image_path).convert("RGB") #Keeps colours
-            image = transform(image) #Convert to tensor, resize
-            images.append(image)
-    
-    X = torch.stack(images) #Converts to single tensor
-
-    torch.save(X, FILENAME_X)
-    
-
-    return FILENAME_X
+    return val_data, test_data
 
 
 def preprocess_Y(device = "cpu", Y_source = Y_DATA):
@@ -93,37 +74,46 @@ def train_test_valid_split(X_DATA, Y):
 
     return train_idx, val_idx, test_idx
 
-class SiameseDataset(torch.utils.data.Dataset):
-    #Custom dataset for pairs of data
-    #To be used with data loader
+class EmbeddingDataset(torch.utils.data.Dataset):
+    """Custom dataset for pairs of data
+    To be used with data loader"""
     def __init__(self, x_data, y_data, indices):
         import pandas as pd
         from pathlib import Path
+
+        #Initialise values
         self.x_data = Path(x_data)
         self.y_data = y_data
         self.indices = indices
+
+        #Set some default parameters
         torch.manual_seed(RANDOM_STATE)
         self.transform = transforms.Compose([
             transforms.Resize((DIMENSIONS, DIMENSIONS)),
             transforms.ToTensor(),
             ])
+        #Load filenames from image directory
         self.filenames = [f.name for f in self.x_data.iterdir() if f.is_file() and f.suffix.lower() in ['.jpg']]
-        assert len(self.filenames) == len(y_data), f"Number of images ({len(self.filenames)}) does not match number of labels ({len(y_data)})"
+
+        #Set up pairs of data
         self._pair_data()
 
     def _pair_data(self):
-        benign_idx = [i for i in self.indices if self.y_data[i] == 0]
-        malig_idx =  [i for i in self.indices if self.y_data[i] == 1]
+        benign_idx = [i for i in self.indices if self.y_data[i] == 0] #indices of benign images
+        malig_idx =  [i for i in self.indices if self.y_data[i] == 1] #indices of malignant images
 
         self.pos_pairs = []
         for idx_list in [benign_idx, malig_idx]:
-            for _ in range((5000)):
+            #For each classification train NUM_TRAIN_SAMPLES pairs
+            for _ in range((NUM_TRAIN_SAMPLES)):
+                #Get samples
                 i, j = random.sample(idx_list, 2)
+                #Append to List
                 self.pos_pairs.append((i,j))
         self.pos_labels = [1] *len(self.pos_pairs)
 
         # Sample negative pairs
-        num_negatives = 5000
+        num_negatives = int(NUM_TRAIN_SAMPLES / 2)
         self.neg_pairs = []
         for _ in range(num_negatives):
             i = random.choice(benign_idx)
@@ -143,8 +133,11 @@ class SiameseDataset(torch.utils.data.Dataset):
         return len(self.pairs)
     
     def _load_image(self, idx):
+        #Gets image
         filename = self.filenames[idx]
         image_path = os.path.join(self.x_data, filename)
+
+        #Converts to tensor
         img = Image.open(image_path).convert("RGB")
         return self.transform(img)
 
@@ -154,3 +147,33 @@ class SiameseDataset(torch.utils.data.Dataset):
         img1, img2 = self._load_image(i), self._load_image(j)
         label = torch.tensor(self.pair_labels[idx], dtype=torch.float32)
         return img1, img2, label
+    
+class ClassifyDataset(torch.utils.data.Dataset):
+    """Dataset to help load data to train classifier, also will be used for test data and validation data. Just contains image and target"""
+    def __init__(self, x_data, y_data, indices):
+        from pathlib import Path
+        self.x_data = Path(x_data)
+        self.y_data = y_data
+        self.indices = indices
+        self.transform = self.transform = transforms.Compose([
+            transforms.Resize((DIMENSIONS, DIMENSIONS)),
+            transforms.ToTensor(),
+            ])
+        self.filenames = [f.name for f in self.x_data.iterdir() if f.is_file() and f.suffix.lower() in ['.jpg']]
+        assert len(self.filenames) == len(y_data), f"Number of images ({len(self.filenames)}) does not match number of labels ({len(y_data)})"
+
+    def __len__(self):
+        return len(self.indices)
+        
+    def _load_image(self, idx):
+        filename = self.filenames[idx]
+        image_path = os.path.join(self.x_data, filename)
+        img = Image.open(image_path).convert("RGB")
+        return self.transform(img)
+    def __getitem__(self, idx):
+        img = self._load_image(idx)
+        label = self.y_data[idx]
+        return img, label
+
+
+         
